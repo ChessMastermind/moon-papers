@@ -9,9 +9,9 @@ const SESSION_REV_MAP = { 1: 'January', 2: 'February', 3: 'Feb/March', 4: 'April
 const BASE_URL = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL.slice(0, -1) : import.meta.env.BASE_URL
 
 const DATA_CONFIG = {
-  'IGCSE': { file: 'cie_IGCSE.json', split: true },
-  'O Level': { file: 'cie_O_Level.json', split: false },
-  'AS and A Level': { file: 'cie_AS_and_A_Level.json', split: true }
+  'IGCSE': { file: 'igcse.json', split: true },
+  'O Level': { file: 'olevel.json', split: false },
+  'AS and A Level': { file: 'alevel.json', split: true }
 }
 
 // Helper to decode optimized JSON keys
@@ -250,7 +250,7 @@ function App() {
       setLoading(true)
       try {
         if (activeTab === 'ial' && ialData.length === 0) {
-          const url = `${import.meta.env.BASE_URL}ial_data.json`
+          const url = `${import.meta.env.BASE_URL}ial.json`
           try {
             const res = await fetch(url)
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
