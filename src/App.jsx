@@ -6,6 +6,8 @@ import { getIALSubjectName } from './subjectMapping'
 const MONTHS = { 'January': 1, 'February': 2, 'March': 3, 'May': 5, 'June': 6, 'October': 10, 'November': 11 }
 const SESSION_REV_MAP = { 1: 'January', 2: 'February', 3: 'Feb/March', 4: 'April', 5: 'May', 6: 'May/June', 7: 'July', 8: 'August', 9: 'September', 10: 'October', 11: 'Oct/Nov', 12: 'December' }
 
+const BASE_URL = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL.slice(0, -1) : import.meta.env.BASE_URL
+
 // Helper to decode optimized JSON keys
 const decodeData = (data, level) => {
   // Handle new Subject-grouped format
@@ -110,7 +112,12 @@ const getCleanTitle = (item) => {
 function App() {
   // Initialize state from URL to prevent flash/overwrite
   const getInitialState = () => {
-    const path = window.location.pathname
+    let path = window.location.pathname
+    if (path.startsWith(BASE_URL)) {
+      path = path.slice(BASE_URL.length)
+    }
+    if (path === '' || path === '/') return { view: 'home', tab: 'ial', level: null }
+    
     if (path === '/privacy') return { view: 'privacy', tab: 'ial', level: null }
     if (path === '/terms') return { view: 'terms', tab: 'ial', level: null }
     if (path.startsWith('/ial')) return { view: 'app', tab: 'ial', level: null }
@@ -167,8 +174,9 @@ function App() {
       }
     }
     
-    if (window.location.pathname !== path) {
-      window.history.pushState({}, '', path)
+    const fullPath = BASE_URL + path
+    if (window.location.pathname !== fullPath) {
+      window.history.pushState({}, '', fullPath)
     }
   }, [view, activeTab, cieLevel])
 
@@ -192,7 +200,7 @@ function App() {
              
              let combinedData = []
              // Try main file
-             const res = await fetch(`/${level.file}`)
+             const res = await fetch(`${import.meta.env.BASE_URL}${level.file}`)
              const contentType = res.headers.get("content-type")
              if (res.ok && contentType && contentType.includes("application/json")) {
                 const rawData = await res.json()
@@ -202,7 +210,7 @@ function App() {
                 const baseName = level.file.replace('.json', '')
                 for (let i = 1; i <= 5; i++) {
                    try {
-                     const chunkRes = await fetch(`/${baseName}_${i}.json`)
+                     const chunkRes = await fetch(`${import.meta.env.BASE_URL}${baseName}_${i}.json`)
                      const chunkType = chunkRes.headers.get("content-type")
                      if (!chunkRes.ok || !chunkType || !chunkType.includes("application/json")) break
                      const chunkRaw = await chunkRes.json()
@@ -239,7 +247,7 @@ function App() {
       setLoading(true)
       try {
         if (activeTab === 'ial' && ialData.length === 0) {
-          const url = '/ial_data.json'
+          const url = `${import.meta.env.BASE_URL}ial_data.json`
           try {
             const res = await fetch(url)
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
@@ -258,7 +266,7 @@ function App() {
           // Try loading main file, if 404, try chunks
           let combinedData = []
           try {
-            const res = await fetch(`/${filename}`)
+            const res = await fetch(`${import.meta.env.BASE_URL}${filename}`)
             const contentType = res.headers.get("content-type")
             if (res.ok && contentType && contentType.includes("application/json")) {
                const rawData = await res.json()
@@ -268,7 +276,7 @@ function App() {
                for (let i = 1; i <= 5; i++) {
                  const chunkName = filename.replace('.json', `_${i}.json`)
                  try {
-                   const chunkRes = await fetch(`/${chunkName}`)
+                   const chunkRes = await fetch(`${import.meta.env.BASE_URL}${chunkName}`)
                    const chunkType = chunkRes.headers.get("content-type")
                    if (!chunkRes.ok || !chunkType || !chunkType.includes("application/json")) break // Stop if chunk not found
                    const chunkRaw = await chunkRes.json()
