@@ -8,6 +8,12 @@ const SESSION_REV_MAP = { 1: 'January', 2: 'February', 3: 'Feb/March', 4: 'April
 
 const BASE_URL = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL.slice(0, -1) : import.meta.env.BASE_URL
 
+const DATA_CONFIG = {
+  'IGCSE': { file: 'cie_IGCSE.json', split: true },
+  'O Level': { file: 'cie_O_Level.json', split: false },
+  'AS and A Level': { file: 'cie_AS_and_A_Level.json', split: true }
+}
+
 // Helper to decode optimized JSON keys
 const decodeData = (data, level) => {
   // Handle new Subject-grouped format
@@ -186,47 +192,44 @@ function App() {
       // Wait 3 seconds after mount to start preloading
       await new Promise(r => setTimeout(r, 3000))
       
-      const levels = [
-        { key: 'IGCSE', file: 'cie_IGCSE.json' },
-        { key: 'O Level', file: 'cie_O_Level.json' },
-        { key: 'AS and A Level', file: 'cie_AS_and_A_Level.json' }
-      ]
-
-      for (const level of levels) {
+      for (const [key, config] of Object.entries(DATA_CONFIG)) {
         // Only fetch if not already in cache
-        if (!cieCache[level.key]) {
+        if (!cieCache[key]) {
            try {
-             console.log(`Preloading ${level.key}...`)
+             console.log(`Preloading ${key}...`)
              
              let combinedData = []
-             // Try main file
-             const res = await fetch(`${import.meta.env.BASE_URL}${level.file}`)
-             const contentType = res.headers.get("content-type")
-             if (res.ok && contentType && contentType.includes("application/json")) {
-                const rawData = await res.json()
-                combinedData = decodeData(rawData, level.key)
+             
+             if (!config.split) {
+                 // Try main file
+                 const res = await fetch(`${import.meta.env.BASE_URL}${config.file}`)
+                 const contentType = res.headers.get("content-type")
+                 if (res.ok && contentType && contentType.includes("application/json")) {
+                    const rawData = await res.json()
+                    combinedData = decodeData(rawData, key)
+                 }
              } else {
                 // Try chunks
-                const baseName = level.file.replace('.json', '')
+                const baseName = config.file.replace('.json', '')
                 for (let i = 1; i <= 5; i++) {
                    try {
                      const chunkRes = await fetch(`${import.meta.env.BASE_URL}${baseName}_${i}.json`)
                      const chunkType = chunkRes.headers.get("content-type")
                      if (!chunkRes.ok || !chunkType || !chunkType.includes("application/json")) break
                      const chunkRaw = await chunkRes.json()
-                     combinedData = combinedData.concat(decodeData(chunkRaw, level.key))
+                     combinedData = combinedData.concat(decodeData(chunkRaw, key))
                    } catch (e) { break }
                 }
              }
 
              if (combinedData.length > 0) {
                  setCieCache(prev => {
-                   if (prev[level.key]) return prev
-                   return { ...prev, [level.key]: combinedData }
+                   if (prev[key]) return prev
+                   return { ...prev, [key]: combinedData }
                  })
              }
            } catch (e) {
-             console.error(`Background load failed for ${level.key}`, e)
+             console.error(`Background load failed for ${key}`, e)
            }
            // Small delay between fetches
            await new Promise(r => setTimeout(r, 1000))
@@ -261,22 +264,28 @@ function App() {
             return
           }
           
-          const filename = `cie_${cieLevel.replace(/ /g, '_').replace(/&/g, 'and')}.json`
+          const config = DATA_CONFIG[cieLevel]
+          const filename = config ? config.file : `cie_${cieLevel.replace(/ /g, '_').replace(/&/g, 'and')}.json`
+          const isSplit = config ? config.split : false
           
-          // Try loading main file, if 404, try chunks
           let combinedData = []
-          try {
-            const res = await fetch(`${import.meta.env.BASE_URL}${filename}`)
-            const contentType = res.headers.get("content-type")
-            if (res.ok && contentType && contentType.includes("application/json")) {
-               const rawData = await res.json()
-               combinedData = decodeData(rawData, cieLevel)
-            } else {
+          
+          if (!isSplit) {
+              // Try loading main file
+              try {
+                const res = await fetch(`${import.meta.env.BASE_URL}${filename}`)
+                const contentType = res.headers.get("content-type")
+                if (res.ok && contentType && contentType.includes("application/json")) {
+                   const rawData = await res.json()
+                   combinedData = decodeData(rawData, cieLevel)
+                }
+              } catch (e) { throw e }
+          } else {
                // Try chunks 1..5
+               const baseName = filename.replace('.json', '')
                for (let i = 1; i <= 5; i++) {
-                 const chunkName = filename.replace('.json', `_${i}.json`)
                  try {
-                   const chunkRes = await fetch(`${import.meta.env.BASE_URL}${chunkName}`)
+                   const chunkRes = await fetch(`${import.meta.env.BASE_URL}${baseName}_${i}.json`)
                    const chunkType = chunkRes.headers.get("content-type")
                    if (!chunkRes.ok || !chunkType || !chunkType.includes("application/json")) break // Stop if chunk not found
                    const chunkRaw = await chunkRes.json()
@@ -284,12 +293,11 @@ function App() {
                    combinedData = combinedData.concat(chunkData)
                  } catch (e) { break }
                }
-            }
+          }
             
-            if (combinedData.length > 0 && !ignore) {
+          if (combinedData.length > 0 && !ignore) {
               setCieCache(prev => ({ ...prev, [cieLevel]: combinedData }))
-            }
-          } catch (e) { throw e }
+          }
         }
       } catch (error) {
         console.error("Failed to load data", error)
