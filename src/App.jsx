@@ -997,8 +997,8 @@ function TermsView() {
             Intellectual Property
           </h3>
           <p className="text-slate-400 pl-4 border-l border-slate-800 ml-0.5">
-            Moon Papers is not affiliated with, endorsed by, or connected to Pearson Edexcel, Cambridge Assessment 
-            International Education (CAIE), or OxfordAQA. All trademarks, logos, and brand names are the property 
+            Moon Papers is not affiliated with, endorsed by, or connected to Pearson Edexcel or Cambridge Assessment 
+            International Education (CAIE). All trademarks, logos, and brand names are the property 
             of their respective owners. All company, product and service names used in this website are for 
             identification purposes only.
           </p>
