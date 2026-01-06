@@ -764,7 +764,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30 flex flex-col relative">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30 flex flex-col relative overflow-x-hidden">
       <BackgroundEffect />
       
       {/* Navbar */}
@@ -840,7 +840,7 @@ function App() {
 
 function HomeView({ setView, setActiveTab }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 space-y-12 animate-in slide-in-from-bottom-8 fade-in duration-500 relative">
+    <div className="flex flex-col items-center justify-center py-20 space-y-12 animate-in slide-in-from-bottom-8 fade-in duration-500 relative w-full overflow-hidden">
       {/* Moon Glow Effect - Optimized with radial gradient instead of blur */}
       <div 
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] -z-10 pointer-events-none"
