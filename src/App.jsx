@@ -6,7 +6,7 @@ import { getIALSubjectName } from './subjectMapping'
 const MONTHS = { 'January': 1, 'February': 2, 'March': 3, 'May': 5, 'June': 6, 'October': 10, 'November': 11 }
 const SESSION_REV_MAP = { 1: 'January', 2: 'February', 3: 'Feb/March', 4: 'April', 5: 'May', 6: 'May/June', 7: 'July', 8: 'August', 9: 'September', 10: 'October', 11: 'Oct/Nov', 12: 'December' }
 
-const BASE_URL = 'moon-papers.com/'
+const BASE_URL = '/'
 
 const DATA_CONFIG = {
   'IGCSE': { file: 'igcse.json', split: true },
