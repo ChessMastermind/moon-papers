@@ -1,30 +1,51 @@
-# React + Vite
+# Moon Papers 🌙
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Live Site:** [moon-papers.com](https://moon-papers.com)
 
-Currently, two official plugins are available:
+Moon Papers is a lightweight, high-performance web application designed to help students and teachers quickly access past examination papers for **Cambridge International (CIE)** and **Pearson Edexcel (IAL)**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
+* **Comprehensive Database:** Indexes resources for IGCSE, O Level, AS & A Level (CIE), and International Advanced Level (Pearson Edexcel).
+* **Fast Search:** Instant filtering by subject, unit code, year, or exam session.
+* **Optimized Data:** Large datasets are minified and split into manageable JSON chunks to ensure rapid loading in the browser.
+* **Direct Access:** Links directly to public PDF repositories for question papers, mark schemes, and examiner reports.
 
-## React Compiler
+## 🛠️ Tech Stack
+* **Frontend:** React built with Vite.
+* **Styling & Icons:** Tailwind-inspired CSS and Lucide React icons.
+* **Data Processing:** Python scripts using Pandas for extraction and optimization.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 📁 Repository Structure
+* `src/`: Core React application logic and components.
+* `public/`: Minified and split JSON data stores (e.g., `igcse_1.json`, `alevel_1.json`, `ial.json`).
+* `developmentfiles/`: Raw source data including CSVs and manual scripts used for indexing.
+* **Data Scripts** (Root):
+    * `extract_data.py`: Parses raw data from CSVs and scripts into structured JSON.
+    * `optimize_data.py`: Minifies JSON keys and groups records to reduce network payload size.
+    * `split_cie_data.py`: Segments large data files for efficient browser-side fetching.
 
-## Expanding the ESLint configuration
+## 🚀 Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Installation
+1.  **Clone the repository:**
+    ```bash
+    git clone ChessMastermind/moon-papers
+    cd moon-papers
+    ```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+3.  **Run development server:**
+    ```bash
+    npm run dev
+    ```
 
-## Deployment
+### Updating Data
+To refresh the exam database:
+1.  Update the source files in `developmentfiles/`.
+2.  Run the extraction script: `python extract_data.py`.
+3.  Run the optimization and splitting script: `python optimize_data.py`.
 
-This project is configured to deploy to GitHub Pages using GitHub Actions.
-
-### Important: Configure GitHub Pages
-
-1. Go to your repository on GitHub.
-2. Click on **Settings** > **Pages**.
-3. Under **Build and deployment** > **Source**, select **GitHub Actions**.
-4. The deployment workflow will automatically pick up the next push to `main`.
-
-If you see 404 errors for `/src/main.jsx` or `/vite.svg`, it means GitHub Pages is currently set to "Deploy from a branch" (serving the source code) instead of using the build artifact.
-
+## 📜 License
+This project is for educational purposes. By using Moon Papers, you acknowledge that the site acts as an index and does not host copyrighted materials directly.
