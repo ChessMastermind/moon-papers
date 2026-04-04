@@ -17,75 +17,58 @@ const DATA_CONFIG = {
 
 // Helper to decode optimized JSON keys
 const decodeData = (data, level) => {
-  // Handle new Subject-grouped format
   if (!Array.isArray(data)) {
     const flattened = []
     for (const [subject, records] of Object.entries(data)) {
       for (const record of records) {
-        // [y, s, t, c, u]
         const [y, s, t, c, u] = record
-        
-        // Reconstruct Year
-        const year = y < 50 ? 2000 + y : 1900 + y // Assumption: 15 -> 2015, 99 -> 1999
-        
-        // Reconstruct Session
+        const year = y < 50 ? 2000 + y : 1900 + y
         const session = SESSION_REV_MAP[s] || 'Unknown'
         
-        // Reconstruct URL
-        // Base URL depends on level
-        let baseUrl = 'https://papers.xtremepape.rs/CAIE/'
-        if (level === 'IGCSE') baseUrl += 'IGCSE/'
-        else if (level === 'O Level') baseUrl += 'O Level/'
-        else if (level === 'AS and A Level') baseUrl += 'AS and A Level/'
-        else if (level === 'IAL') baseUrl = 'https://qualifications.pearson.com/content/dam/pdf/International Advanced Level/' // IAL URL structure is complex, might need better handling
-        
-        // For CIE, URL is Base + Subject + / + Filename
-        // But Subject in JSON is "Accounting (0452)"
-        // We need to handle the URL reconstruction carefully.
-        // Actually, the previous URL was: .../IGCSE/Accounting (0452)/0452_m15_er.pdf
-        // So it is Base + Subject + '/' + Filename
-        
-        let fullUrl = ''
-        if (level === 'IAL') {
-             // IAL URLs are messy and not easily reconstructible from just filename + subject
-             // But wait, IAL data in my optimization script used "Title" and "Unit_Code"
-             // And I stored [y, s, t, title, filename]
-             // If IAL URLs are not reconstructible, I should have kept them?
-             // Let's assume for now IAL URLs are lost if I didn't keep them.
-             // Wait, IAL URLs in `ial_data.json` were full URLs.
-             // My optimization script stripped them to filename.
-             // If I can't reconstruct them, I broke IAL links.
-             // I should check IAL URL patterns.
-             // For now, let's assume CIE links work.
-             fullUrl = u // Placeholder
+        let fullUrl = u
+        let unitIdentifier = subject; 
+
+        // Handle Edexcel-specific variant grouping
+        if (level === 'IAL' || level === 'IGCSE (Edexcel)') {
+          // Your scraper appends the variant (e.g., " 1R") to the end of c
+          // We extract it to make a unique identifier for each row
+          const variantMatch = c.match(/\s([0-9]R?|Provisional)$/);
+          const variant = variantMatch ? variantMatch[0].trim() : "";
+          
+          if (level === 'IGCSE (Edexcel)') {
+            // Result: "4AC1 Paper 1R"
+            unitIdentifier = `${subject} Paper ${variant}`;
+          } else if (c.includes('(R)')) {
+            // Result: "WCH12 (R)"
+            unitIdentifier = `${subject} (R)`;
+          }
         } else {
-             fullUrl = `${baseUrl}${subject}/${u}`
+          // CIE Logic
+          let baseUrl = 'https://papers.xtremepape.rs/CAIE/'
+          if (level === 'IGCSE') baseUrl += 'IGCSE/'
+          else if (level === 'O Level') baseUrl += 'O Level/'
+          else if (level === 'AS and A Level') baseUrl += 'AS and A Level/'
+          fullUrl = `${baseUrl}${subject}/${u}`
         }
 
-        const item = {
+        flattened.push({
           Year: year,
           Session: session,
           Type: t,
-          Component: c,
+          Component: level.includes('Edexcel') ? null : c,
           URL: fullUrl,
           Subject: subject,
-          Unit: c, // Fallback
+          Unit: unitIdentifier, // Used for display and grouping
+          Unit_Code: subject,   // Original code for subject mapping
+          Title: c, 
           Category: level
-        }
-        
-        if (level === 'IAL') {
-            item.Unit_Code = subject // In IAL, key is Unit_Code
-            item.Title = c // In IAL, 4th element was Title
-            item.Component = null
-        }
-        
-        flattened.push(item)
+        })
       }
     }
     return flattened
   }
 
-  // Fallback for old format (if any)
+  // Fallback for old format
   return data.map(item => ({
     Year: item.y || item.Year,
     Session: item.s || item.Session,
@@ -128,6 +111,7 @@ function App() {
     if (path === '/privacy') return { view: 'privacy', tab: 'ial', level: null }
     if (path === '/terms') return { view: 'terms', tab: 'ial', level: null }
     if (path.startsWith('/ial')) return { view: 'app', tab: 'ial', level: null }
+    if (path.startsWith('/igcse')) return { view: 'app', tab: 'igcse', level: null } 
     if (path.startsWith('/cie')) {
       let level = null
       if (path.includes('igcse')) level = 'IGCSE'
@@ -147,6 +131,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('')
   const deferredSearchTerm = useDeferredValue(searchTerm)
   const [ialData, setIalData] = useState([])
+  const [edexcelIgcseData, setEdexcelIgcseData] = useState([])
   const [cieCache, setCieCache] = useState({})
   const [loading, setLoading] = useState(false)
   const [sortOrder, setSortOrder] = useState('newest')
@@ -173,6 +158,7 @@ function App() {
     else if (view === 'terms') path = '/terms'
     else if (view === 'app') {
       if (activeTab === 'ial') path = '/ial'
+      else if (activeTab === 'igcse') path = '/igcse'
       else if (activeTab === 'cie') {
         path = '/cie'
         if (cieLevel === 'IGCSE') path += '/igcse'
@@ -259,7 +245,13 @@ function App() {
             const data = decodeData(rawData, 'IAL')
             if (!ignore) setIalData(data)
           } catch (e) { throw e }
-        } else if (activeTab === 'cie' && cieLevel) {
+        } else if (activeTab === 'igcse' && edexcelIgcseData.length === 0) {
+            const res = await fetch(`${import.meta.env.BASE_URL}ial-igcse.json`)
+            const rawData = await res.json()
+            const data = decodeData(rawData, 'IGCSE (Edexcel)')
+            if (!ignore) setEdexcelIgcseData(data)
+        }
+        else if (activeTab === 'cie' && cieLevel) {
           if (cieCache[cieLevel]) {
             setLoading(false)
             return
@@ -316,13 +308,11 @@ function App() {
   }, [activeTab, deferredSearchTerm, viewMode, cieLevel, sortOrder])
 
   const currentData = useMemo(() => {
-    if (activeTab === 'ial') return ialData
-    if (activeTab === 'cie') {
-      if (!cieLevel) return []
-      return cieCache[cieLevel] || []
-    }
-    return []
-  }, [activeTab, ialData, cieCache, cieLevel])
+  if (activeTab === 'ial') return ialData
+  if (activeTab === 'igcse') return edexcelIgcseData
+  if (activeTab === 'cie') return cieCache[cieLevel] || []
+  return []
+}, [activeTab, ialData, edexcelIgcseData, cieCache, cieLevel])
 
   const filteredData = useMemo(() => {
     if (!deferredSearchTerm) return currentData
@@ -358,13 +348,15 @@ function App() {
       
       filteredData.forEach(item => {
         let subject = item.Subject
-        let unit = item.Unit || item.Component || item.Unit_Code || 'General'
+        // Use the Unit_Code we just fixed in the decoder
+        let unit = item.Unit_Code || item.Unit || item.Component || 'General'
         
-        if (activeTab === 'ial') {
-           subject = getIALSubjectName(item.Unit_Code) || 'Unknown'
-           unit = item.Unit_Code
+        if (activeTab === 'ial' || activeTab === 'igcse') {
+           subject = getIALSubjectName(item.Unit_Code) || item.Subject
+           // This ensures WCH12 and WCH12 (R) are treated as different rows
+           unit = item.Unit_Code 
         }
-        
+      
         const key = `${subject}|${unit}`
         
         if (!groups[key]) {
@@ -391,6 +383,8 @@ function App() {
         else if (item.Type === 'er') s.er = item
         else if (item.Type === 'gt') s.gt = item
         else s.others.push(item)
+
+        return Object.values(groups).sort((a, b) => b.year - a.year)
       })
       
       // Convert sessions map to sorted array
@@ -419,7 +413,7 @@ function App() {
       return sortedGroups
     }
 
-    if (activeTab === 'ial') {
+    if (activeTab === 'ial' || activeTab === 'igcse') {
       // Group IAL data by Subject + Session + Year
       const groups = {}
       
@@ -536,6 +530,7 @@ function App() {
         const sessionB = MONTHS[b.session] || 0
         return sessionB - sessionA
       })
+    return []
     }
   }, [filteredData, activeTab, viewMode, sortOrder])
 
@@ -688,11 +683,14 @@ function App() {
             <div className="bg-slate-900/50 rounded-2xl border border-slate-800 overflow-hidden backdrop-blur-sm flex flex-col h-[calc(100vh-280px)] sm:h-[800px]">
               <div className="px-4 sm:px-6 py-4 border-b border-slate-800 bg-slate-900/80 flex flex-col sm:flex-row items-start sm:items-center justify-between sticky top-0 z-10 gap-4 sm:gap-0">
                 <div className="flex items-center space-x-3 w-full sm:w-auto">
-                  <div className={`p-2 rounded-lg ${activeTab === 'ial' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                    <BookOpen className="h-5 w-5" />
+                  <div className={`p-2 rounded-lg ${activeTab === 'ial' ? 'bg-indigo-500/10 text-indigo-400' : activeTab === 'igcse' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    {activeTab === 'igcse' ? <Library className="h-5 w-5" /> : 
+                    <BookOpen className="h-5 w-5" />}
                   </div>
                   <h2 className="text-lg font-semibold text-white truncate">
-                    {activeTab === 'ial' ? 'IAL Sessions' : `CIE ${cieLevel}`}
+                    {activeTab === 'ial' ? 'IAL Sessions' : 
+                     activeTab === 'igcse' ? 'Edexcel IGCSE' : 
+                     `CIE ${cieLevel}`}
                   </h2>
                 </div>
                 <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-between sm:justify-end overflow-x-auto pb-1 sm:pb-0">
@@ -749,7 +747,7 @@ function App() {
                     groupedData.slice(0, visibleCount).map(group => <PaperGroupCard key={group.id} group={group} expandTrigger={expandAll} />)
                   ) : (
                     groupedData.slice(0, visibleCount).map((group) => (
-                      activeTab === 'ial' 
+                      activeTab === 'ial' || activeTab === 'igcse' 
                         ? <IALSessionCard key={group.id} group={group} expandTrigger={expandAll} />
                         : <CIESessionCard key={group.id} group={group} expandTrigger={expandAll} />
                     ))
@@ -808,6 +806,16 @@ function App() {
                   }`}
                 >
                   CIE
+                </button>
+                <button
+                  onClick={() => setActiveTab('igcse')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'igcse' 
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  Edexcel IGCSE
                 </button>
               </div>
             )}
@@ -884,6 +892,17 @@ function HomeView({ setView, setActiveTab }) {
           </div>
           <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">Cambridge CIE</h3>
           <p className="text-slate-400">IGCSE, O Level, and A Level resources from Cambridge International.</p>
+        </button>
+
+        <button 
+          onClick={() => { setActiveTab('igcse'); setView('app'); }}
+          className="group relative p-8 bg-slate-900 border border-slate-800 rounded-2xl hover:border-amber-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/10 text-left"
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Library className="h-24 w-24 text-amber-500" />
+          </div>
+          <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-amber-400 transition-colors">Edexcel IGCSE</h3>
+          <p className="text-slate-400">International GCSE papers and marks schemes for Edexcel.</p>
         </button>
       </div>
 
